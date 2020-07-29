@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Data.Entity.Core.Objects;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -15,38 +16,19 @@ namespace Lessons_Cordinator_beta {
         DataContext data = new DataContext();
         Student editableStudent = new Student();
         Groups editableGroup = new Groups();
+        List<Student> currentViewStudents = new List<Student>();
+        List <dayInformation> currentStudentInfo = new List<dayInformation>();
+        dayInformation currentEditInfo = new dayInformation();
 
         public Home() {
             InitializeComponent();
-            //setUp();
-        }
-
-
-        void setUp() {
-
-            foreach (Models.Day d in Enum.GetValues(typeof(Models.Day))) {
-                comboBoxDay.Items.Add(d);
-            }
-            foreach (Models.Day d in Enum.GetValues(typeof(Models.Day))) {
-                comboBoxEditGroupDay.Items.Add(d);
-            }
-            foreach (var g in data.groups.ToList()) {
-                comboBoxsSearchByGroup.Items.Add(g.ToString());
-            }
-            foreach (var g in data.groups.ToList()) {
-                comboBoxAbsentGroup.Items.Add(g.ToString());
-            }
-            foreach (Gender d in Enum.GetValues(typeof(Gender))) {
-                genderCombo.Items.Add(d);
-            }
-
         }
 
         void getStudents(string str) {
 
-            gridViewStudents.Rows.Clear();
             List<Student> Students = data.students.Where(st => st.name.Contains(str) == true).ToList();
             List<Groups> _groups = data.groups.ToList();
+            currentViewStudents = Students;
 
             foreach (Student st in Students) {
 
@@ -58,7 +40,7 @@ namespace Lessons_Cordinator_beta {
 
                 gridViewStudents.Rows.Add(st.name, st.phone1, st.phone2,
                     _groups.FirstOrDefault(m => m.ID == st.groupID).ToString(),
-                    info.Count(inf => inf.studentID == st.ID && inf.absent == false), "معلومات", "تعديل");
+                    info.Count(inf => inf.studentID == st.ID && inf.absent == false), "معلومات", "تعديل","حذف");
             }
             bool color = true;
             foreach (DataGridViewRow row in gridViewStudents.Rows) {
@@ -84,38 +66,36 @@ namespace Lessons_Cordinator_beta {
 
 
         private void addStudentBtn_Click(object sender, EventArgs e) {
-            groupCombo.Items.Clear();
-            List<Groups> _groups = data.groups.ToList();
-            foreach (Groups g in _groups)
-                groupCombo.Items.Add(g.day.ToString() + ", " + g.hour.ToString() + ":" + g.minutes.ToString() + " " + g.gender.ToString());
-
             tabControl.SelectedIndex = 1;
+            cleanAddStudentTab();
         }
 
         private void studentsBtn_Click(object sender, EventArgs e) {
             tabControl.SelectedIndex = 2;
-            dataGridViewStudentRecord.Rows.Clear();
-            gridViewStudents.Rows.Clear();
+            cleanStudentsTab();
         }
 
         private void addGroupBtn_Click(object sender, EventArgs e) {
             tabControl.SelectedIndex = 0;
+            cleanAddGroupTab();
         }
 
         private void groupsBtn_Click(object sender, EventArgs e) {
             tabControl.SelectedIndex = 3;
-            groupsGridView.Rows.Clear();
+            cleanGroupsTab();
             getgroups();
         }
 
         private void absenceBtn_Click(object sender, EventArgs e) {
             tabControl.SelectedIndex = 7;
+            cleanAbsentTab();
         }
 
         private void Home_Load(object sender, EventArgs e) {
             tabControl.Appearance = TabAppearance.FlatButtons;
             tabControl.ItemSize = new Size(0, 1);
             tabControl.SizeMode = TabSizeMode.Fixed;
+            cleanAddGroupTab();
         }
 
         private void btnAddStudent_Click(object sender, EventArgs e) {
@@ -132,6 +112,7 @@ namespace Lessons_Cordinator_beta {
             data.students.Add(stu);
             data.SaveChanges();
             MessageBox.Show("تمت اضافه الطالب/ه بنجاح");
+            cleanAddStudentTab();
         }
 
         private void newGroupBtn_Click(object sender, EventArgs e) {
@@ -147,23 +128,27 @@ namespace Lessons_Cordinator_beta {
             data.groups.Add(gr);
             data.SaveChanges();
             MessageBox.Show("تمت اضافه المجموعه بنجاح");
-            setUp();
         }
 
         private void btnStudentsSearch_Click(object sender, EventArgs e) {
-            getStudents(textBoxStudentsSearch.Text);
+
+            string searchCritierta = textBoxStudentsSearch.Text;
+            cleanStudentsTab();
+            getStudents(searchCritierta);
         }
 
         private void gridViewStudents_CellClick(object sender, DataGridViewCellEventArgs e) {
-            comboBoxStuGroup.Items.Clear();
 
-            List<Student> Students = data.students.Where(st => st.name.Contains(textBoxStudentsSearch.Text) == true).ToList();
+            cleanEditStudentTab();
+
             int col = e.RowIndex, row = e.ColumnIndex;
-            Student stu = Students[col];
+            Student stu = currentViewStudents[col];
             editableStudent = stu;
 
             if (row == 6) {
                 tabControl.SelectedIndex = 4;
+                cleanStudentRecordTab();
+
                 textBoxStuName.Text = stu.name;
                 textBoxStuWhatsNumber.Text = stu.whatsAppNumber;
                 textBoxStuAddress.Text = stu.address;
@@ -181,7 +166,6 @@ namespace Lessons_Cordinator_beta {
                         selectMe = cnt;
                     cnt++;
                 }
-                data.SaveChanges();
             }
             else if (row == 5) {
                 tabControl.SelectedIndex = 5;
@@ -190,12 +174,22 @@ namespace Lessons_Cordinator_beta {
 
                     string date = rec.date.Day.ToString() + "/" + rec.date.Month.ToString() + "/" +
                         rec.date.Year.ToString();
-                    dataGridViewStudentRecord.Rows.Add(date, rec.mark, rec.absent == true ? "حاضر" : "غائب", rec.note);
+                    dataGridViewStudentRecord.Rows.Add(date, rec.mark, rec.absent == true ? "حاضر" : "غائب", rec.note,"تعديل", "حذف");
                 }
+
+                bool color = true;
+                foreach (DataGridViewRow rr in dataGridViewStudentRecord.Rows) {
+                    if (color) rr.DefaultCellStyle.BackColor = Color.LightGray;
+                    else rr.DefaultCellStyle.BackColor = Color.LightBlue;
+                    color = !color;
+                }
+
+                currentStudentInfo = data.dayInfoList.Where(inf => inf.studentID == stu.ID).ToList();
             }
             else if (row == 7) {
                 data.students.Remove(stu);
                 data.SaveChanges();
+                MessageBox.Show("تم الحذف");
 
                 gridViewStudents.Rows.Clear();
                 getStudents(textBoxStudentsSearch.Text);
@@ -215,6 +209,7 @@ namespace Lessons_Cordinator_beta {
             stu.groupID = data.groups.ToList()[comboBoxStuGroup.SelectedIndex].ID;
             data.SaveChanges();
             MessageBox.Show("تم الحفظ");
+            studentsBtn_Click(sender, e);
         }
 
         private void groupsGridView_CellClick(object sender, DataGridViewCellEventArgs e) {
@@ -237,6 +232,7 @@ namespace Lessons_Cordinator_beta {
                 comboBoxEditGroupDay.Text = editableGroup.day.ToString();
 
                 tabControl.SelectedIndex = 6;
+                cleanEditGroupTab();
             }
         }
 
@@ -244,6 +240,9 @@ namespace Lessons_Cordinator_beta {
             editableGroup.hour = int.Parse(textBoxEditGroupHour.Text);
             editableGroup.minutes = int.Parse(textBoxEditGroupMinutes.Text);
             editableGroup.day = (Models.Day)Enum.Parse(typeof(Models.Day), comboBoxEditGroupDay.Text);
+            data.SaveChanges();
+            MessageBox.Show("تم الحفظ");
+            groupsBtn_Click(sender, e);
         }
 
         private void comboBoxsSearchByGroup_SelectedIndexChanged(object sender, EventArgs e) {
@@ -251,6 +250,7 @@ namespace Lessons_Cordinator_beta {
 
             gridViewStudents.Rows.Clear();
             List<Student> Students = data.students.Where(st => st.groupID == group.ID).ToList();
+            currentViewStudents = Students;
 
             foreach (Student st in Students) {
 
@@ -278,7 +278,7 @@ namespace Lessons_Cordinator_beta {
             dataGridViewAbsent.Rows.Clear();
             List<Student> stus = data.students.Where(st => st.groupID == group.ID).ToList();
             foreach (var st in stus) {
-                dataGridViewAbsent.Rows.Add(st.name, "1-");
+                dataGridViewAbsent.Rows.Add(st.name, "0");
             }
         }
 
@@ -290,16 +290,137 @@ namespace Lessons_Cordinator_beta {
 
                 dayInformation info = new dayInformation();
                 info.date = dateTimePickerAbsent.Value;
-                info.mark = int.Parse(dataGridViewAbsent[1, i].Value.ToString());
-                info.note = dataGridViewAbsent[3, i].Value.ToString();
-                info.absent = !bool.Parse(dataGridViewAbsent[2, i].Value.ToString());
+
+
+                if(dataGridViewAbsent[1,i].Value != null)
+                    info.mark = int.Parse(dataGridViewAbsent[1, i].Value.ToString());
+                else 
+                    info.mark = 0;
+
+                if (dataGridViewAbsent[3, i].Value != null)
+                    info.note = dataGridViewAbsent[3, i].Value.ToString();
+                else
+                    info.note = "";
+
+                if (dataGridViewAbsent[2, i].Value != null)
+                    info.absent = !bool.Parse(dataGridViewAbsent[2, i].Value.ToString());
+                else 
+                    info.absent = true;
+
                 info.studentID = stus[i].ID;
 
                 data.dayInfoList.Add(info);
-                data.SaveChanges();
+            }
+            data.SaveChanges();
+            MessageBox.Show("تم الحفظ");
+        }
+        public void cleanAddGroupTab() {
+
+            comboBoxDay.Items.Clear();
+            genderCombo.Items.Clear();
+
+            foreach (Models.Day d in Enum.GetValues(typeof(Models.Day))) {
+                comboBoxDay.Items.Add(d);
+            }
+
+            hourBox.Text = minutesBox.Text = "";
+
+            foreach (Gender d in Enum.GetValues(typeof(Gender))) {
+                genderCombo.Items.Add(d);
+            }
+
+        }
+        public void cleanAddStudentTab() {
+
+            groupCombo.Items.Clear();
+
+            List<Groups> _groups = data.groups.ToList();
+            foreach (Groups g in _groups)
+                groupCombo.Items.Add(g.day.ToString() + ", " + g.hour.ToString() + ":" + g.minutes.ToString() + " " + g.gender.ToString());
+
+            nameBox.Text = phone1Box.Text = phone2Box.Text = whatsAppBox.Text = "";
+            addressBox.Text = schoolBox.Text = "";
+        }
+        public void cleanStudentsTab() {
+
+            gridViewStudents.Rows.Clear();
+            comboBoxsSearchByGroup.Items.Clear();
+
+            foreach (var g in data.groups.ToList()) {
+                comboBoxsSearchByGroup.Items.Add(g.ToString());
+            }
+
+            textBoxStudentsSearch.Text = "";
+        }
+        public void cleanGroupsTab() {
+            groupsGridView.Rows.Clear();
+        }
+        public void cleanEditGroupTab() {
+
+            comboBoxEditGroupDay.Items.Clear();
+
+            foreach (Models.Day d in Enum.GetValues(typeof(Models.Day))) {
+                comboBoxEditGroupDay.Items.Add(d);
+            }
+
+            textBoxEditGroupHour.Text = textBoxEditGroupMinutes.Text = "";
+        }
+        public void cleanEditStudentTab() {
+            textBoxStuAddress.Text = textBoxStuFatherPhone.Text = textBoxStuName.Text = textBoxStuPhone.Text = "";
+            textBoxStuSchool.Text = textBoxStuWhatsNumber.Text = "";
+
+            comboBoxStuGroup.Items.Clear();
+        }
+        public void cleanAbsentTab() {
+
+            comboBoxAbsentGroup.Items.Clear();
+            dataGridViewAbsent.Rows.Clear();
+
+            foreach (var g in data.groups.ToList()) {
+                comboBoxAbsentGroup.Items.Add(g.ToString());
             }
         }
 
+        public void cleanStudentRecordTab() {
+            dataGridViewStudentRecord.Rows.Clear();
+        }
 
+        private void dataGridViewStudentRecord_CellClick(object sender, DataGridViewCellEventArgs e) {
+
+            int col = e.ColumnIndex, row = e.RowIndex;
+
+            if(col == 5) {
+                data.dayInfoList.Remove(currentStudentInfo[row]);
+                currentStudentInfo.Remove(currentStudentInfo[row]);
+                data.SaveChanges();
+
+                dataGridViewStudentRecord.Rows.Clear();
+                foreach (var rec in currentStudentInfo) {
+
+                    string date = rec.date.Day.ToString() + "/" + rec.date.Month.ToString() + "/" +
+                        rec.date.Year.ToString();
+                    dataGridViewStudentRecord.Rows.Add(date, rec.mark, rec.absent == true ? "حاضر" : "غائب", rec.note);
+                }
+            }  
+            else if(col == 4) {
+                tabControl.SelectedIndex = 8;
+
+                currentEditInfo = currentStudentInfo[row];
+
+                checkBoxEditRecordAbsent.Checked = !currentEditInfo.absent;
+                textBoxEditRecordMark.Text = currentEditInfo.mark.ToString();
+                textBoxEditRecordNote.Text = currentEditInfo.note;
+
+            }
+        }
+
+        private void buttonEditRecordSave_Click(object sender, EventArgs e) {
+            currentEditInfo.absent = !checkBoxEditRecordAbsent.Checked;
+            currentEditInfo.mark = double.Parse(textBoxEditRecordMark.Text);
+            currentEditInfo.note = textBoxEditRecordNote.Text;
+            data.SaveChanges();
+            MessageBox.Show("تم الحفظ");
+
+        }
     }
 }

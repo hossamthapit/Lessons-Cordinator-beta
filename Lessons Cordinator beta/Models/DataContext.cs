@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Lessons_Cordinator_beta.Models {
     class DataContext : DbContext {
-        public DataContext() : base("name=LessonsCordinator") {
+        public DataContext() : base("name=CordinatorDB") {
 
         }
         public DbSet<Student> students { get; set; }
